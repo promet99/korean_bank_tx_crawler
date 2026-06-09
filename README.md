@@ -99,20 +99,38 @@ Returns a `list` of transaction dictionaries. Each dictionary contains:
 - `balance`: `int` representing the balance after transaction.
 - `transaction_by`: `str` representing the sender or transaction description.
 
-#### Example Result
+#### KB Kookmin Bank Example Result
 ```python
 [
     {
         'date': datetime.datetime(2026, 5, 8, 0, 41, 52),
         'amount': -27300,
         'balance': 125000,
-        'transaction_by': '박상준'
+        'transaction_by': '홍길동'
     },
     {
         'date': datetime.datetime(2026, 5, 6, 15, 21, 31),
         'amount': 27300,
         'balance': 152300,
-        'transaction_by': '(주)알라딘커뮤니케'
+        'transaction_by': '온라인쇼핑'
+    }
+]
+```
+
+#### Woori Bank Example Result
+```python
+[
+    {
+        'date': datetime.datetime(2026, 6, 9, 13, 28, 15),
+        'amount': -10000,
+        'balance': 0,
+        'transaction_by': '김철수'
+    },
+    {
+        'date': datetime.datetime(2026, 6, 9, 13, 27, 6),
+        'amount': 10000,
+        'balance': 10000,
+        'transaction_by': '홍길동'
     }
 ]
 ```
@@ -120,6 +138,9 @@ Returns a `list` of transaction dictionaries. Each dictionary contains:
 ---
 
 ## Update Log
+
+#### 0.3.2 (2026-06-09)
+- **Doc**: Add example output results for Kookmin Bank and Woori Bank transaction queries.
 
 #### 0.3.0 (2026-06-09)
 - **Feature**: Add support for **Woori Bank** transaction crawling.
