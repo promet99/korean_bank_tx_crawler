@@ -1,4 +1,4 @@
-# Simple Bank Korea [![PyPI version](https://badge.fury.io/py/simple-bank-korea.svg)](https://badge.fury.io/py/simple-bank-korea)
+# Korean Bank Tx Crawler [![PyPI version](https://badge.fury.io/py/korean-bank-tx-crawler.svg)](https://badge.fury.io/py/korean-bank-tx-crawler)
 
 ## Simplest Transaction Crawler for Korean Banks
 
@@ -21,7 +21,7 @@ Currently supports:
 Install package with pip:
 
 ```bash
-pip install -U simple_bank_korea
+pip install -U korean_bank_tx_crawler
 ```
 
 ## Before Use
