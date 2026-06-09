@@ -6,6 +6,9 @@ Currently supports:
 - **KB국민은행 (Kookmin Bank)**
 - **우리은행 (Woori Bank)**
 
+> [!WARNING]
+> **Legal Disclaimer**: This library is for educational purposes only. Automated crawling of banking transactions may violate the bank's terms of service and/or local regulations. Sensitive credentials (account numbers, passwords, and birthdates) are processed entirely on your local machine, but handling them carries inherent security risks. The authors and contributors assume no liability for financial loss, account suspension, or security breaches. Use at your own risk.
+
 ### Requirements
 
 - `beautifulsoup4`
