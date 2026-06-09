@@ -9,7 +9,7 @@ def get_requires():
     reqpath = os.path.join(thisdir, REQ_FILE)
     return [line.rstrip('\n') for line in open(reqpath)]
 
-setup(name='simple_bank_korea',
+setup(name='korean_bank_tx_crawler',
       version=VERSION,
       url='https://github.com/beomi/simple_bank_korea',
       license='MIT',
