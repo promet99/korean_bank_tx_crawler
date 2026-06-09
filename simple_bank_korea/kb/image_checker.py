@@ -2,49 +2,68 @@ from io import StringIO, BytesIO
 import base64
 from PIL import Image
 from PIL import ImageChops
-from selenium import webdriver
+import requests
+from bs4 import BeautifulSoup as bs
 
 import math, operator
 from functools import reduce
 import re
 import os
 
-from ..libcheck.phantomjs_checker import TMP_DIR
 CURRENT_PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-def get_keypad_img(PHANTOM_PATH, LOG_PATH=os.path.devnull):
+def get_keypad_img(PHANTOM_PATH=None, LOG_PATH=os.path.devnull):
     area_hash_list = []
-    area_pattern = re.compile("'(\w+)'")
-    driver = webdriver.PhantomJS(executable_path=PHANTOM_PATH, service_log_path=LOG_PATH)
-    driver.set_window_size('1920', '1080')
-    driver.implicitly_wait(10)
-    driver.get('https://obank.kbstar.com/quics?page=C025255&cc=b028364:b028702&QSL=F')
-    if driver.get_cookie('JSESSIONID'):
-        JSESSIONID = driver.get_cookie('JSESSIONID').get('value')
-    else:
-        JSESSIONID = ''
-        print('no JSESSIONID')
-    if driver.get_cookie('QSID'):
-        QSID = driver.get_cookie('QSID').get('value')
-    else:
-        QSID = ''
-        print('no QSID')
-    KEYPAD_USEYN = driver.find_element_by_css_selector('input[id*="KEYPAD_USEYN"]').get_attribute('value')
-    quics_img = driver.find_element_by_css_selector('img[src*="quics"]')
-    area_list = driver.find_elements_by_css_selector('map > area')
+    area_pattern = re.compile(r"'(\w+)'")
+
+    session = requests.Session()
+    headers = {
+        'Pragma': 'no-cache',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Language': 'ko-KR,ko;q=0.8,en-US;q=0.6,en;q=0.4,la;q=0.2,da;q=0.2',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.79 Safari/537.36',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+    }
+    session.headers.update(headers)
+
+    r = session.get('https://obank.kbstar.com/quics?page=C025255&cc=b028364:b028702&QSL=F')
+
+    JSESSIONID = session.cookies.get('JSESSIONID') or ''
+    QSID = session.cookies.get('QSID') or ''
+
+    soup = bs(r.text, 'html.parser')
+
+    keypad_useyn_el = soup.select('input[id*="KEYPAD_USEYN"]')
+    KEYPAD_USEYN = keypad_useyn_el[0].get('value') if keypad_useyn_el else ''
+
+    # Extract the hex-encoded HTML string inside vKpd.hex2bin
+    match = re.search(r'vKpd\.hex2bin\(\"([0-9a-fA-F]+)\"\)', r.text)
+    if not match:
+        raise Exception("Failed to locate hex-encoded keypad HTML")
+
+    hex_str = match.group(1)
+    decoded_html = bytes.fromhex(hex_str).decode('utf-8')
+    keypad_soup = bs(decoded_html, 'html.parser')
+
+    quics_img = keypad_soup.select('img')
+    if not quics_img:
+        raise Exception("Failed to locate keypad image inside decoded HTML")
+
+    img_url = 'https://obank.kbstar.com' + quics_img[0].get('src')
+    keymap = quics_img[0].get('usemap').replace('#divKeypad', '')[:-3]
+
+    area_list = keypad_soup.select('map > area')
 
     for area in area_list:
-        re_matched = area_pattern.findall(area.get_attribute('onmousedown'))
+        onmousedown = area.get('onmousedown') or ''
+        re_matched = area_pattern.findall(onmousedown)
         if re_matched:
             area_hash_list.append(re_matched[0])
 
-    img_url = quics_img.get_attribute('src')
-    keymap = quics_img.get_attribute('usemap').replace('#divKeypad', '')[:-3]
-    driver.get(img_url)
-    screenshot = Image.open(BytesIO(driver.get_screenshot_as_png()))
-    real = screenshot.crop(box=(0, 0, 205, 336))
-    driver.quit()
+    r_img = session.get(img_url)
+    real = Image.open(BytesIO(r_img.content)).convert('RGBA')
 
     # Get list
     num_sequence = _get_keypad_num_list(real)

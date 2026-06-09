@@ -4,17 +4,17 @@ import datetime
 from dateutil import parser
 import os
 import json
+import tempfile
 
 from .image_checker import get_keypad_img
-from ..libcheck.phantomjs_checker import TMP_DIR, get_phantomjs_path
+
+TMP_DIR = tempfile.gettempdir()
 
 
 def get_transactions(bank_num, birthday, password, days=30,
                      PHANTOM_PATH=None,
                      LOG_PATH=os.path.devnull,
                      cache=False):
-    if not PHANTOM_PATH:
-        PHANTOM_PATH = get_phantomjs_path()
 
     def _get_transactions(VIRTUAL_KEYPAD_INFO, bank_num, birthday, password, days, LOG_PATH):
         PW_DIGITS = VIRTUAL_KEYPAD_INFO['PW_DIGITS']
