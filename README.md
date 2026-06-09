@@ -1,136 +1,109 @@
 # Korean Bank Tx Crawler [![PyPI version](https://badge.fury.io/py/korean-bank-tx-crawler.svg)](https://badge.fury.io/py/korean-bank-tx-crawler)
 
-> **Forked from [beomi/simple_bank_korea](https://github.com/beomi/simple_bank_korea)**
+한국 은행의 `빠른조회` 페이지를 자동으로 열어서
+거래내역을 가져오는 파이썬 라이브러리입니다.
 
-## Simplest Transaction Crawler for Korean Banks
+원본 프로젝트: [beomi/simple_bank_korea](https://github.com/beomi/simple_bank_korea)
 
-Currently supports:
-- **KB국민은행 (Kookmin Bank)**
-- **우리은행 (Woori Bank)**
+## 지원 은행
 
-> [!WARNING]
-> **Legal Disclaimer**: This library is for educational purposes only. Automated crawling of banking transactions may violate the bank's terms of service and/or local regulations. Sensitive credentials (account numbers, passwords, and birthdates) are processed entirely on your local machine, but handling them carries inherent security risks. The authors and contributors assume no liability for financial loss, account suspension, or security breaches. Use at your own risk.
+- `kb` : KB국민은행
+- `hana` : 하나은행
+- `woori` : 우리은행
 
-### Requirements
-
-- `beautifulsoup4`
-- `requests`
-- `python-dateutil`
-- `pillow`
-- `selenium`
-- `webdriver-manager`
-- Chrome or Brave Browser installed on the system (for virtual keypad template matching)
-
-## Install
-
-Install package with pip:
+## 설치
 
 ```bash
 pip install -U korean_bank_tx_crawler
 ```
 
-## Before Use
+## 필요한 것
 
-You must activate the **'빠른조회' (Speed Inquiry)** service for each bank account. You can only query accounts that have been registered for this service.
+1. 계좌가 해당 은행의 `빠른조회` 서비스에 등록되어 있어야 합니다.
+2. PC에 `Chrome` 또는 `Brave Browser`가 설치되어 있어야 합니다.
+3. 계좌번호, 생년월일 6자리, 계좌 비밀번호 4자리가 필요합니다.
 
-- **KB (Kookmin Bank)**: Quick inquiry can be activated on the KB Internet Banking site.
-- **Woori Bank**: Quick inquiry can be activated on the Woori Internet Banking site.
-
----
-
-## Usage
-
-Import the unified `get_transactions` function from `simple_bank_korea`:
+## 바로 사용하기
 
 ```python
 from simple_bank_korea import get_transactions
 
-# bank_name can be either 'kb' (or 'kookmin') or 'woori'
-transaction_list = get_transactions(
-    bank_name='woori', 
-    bank_num='REDACTED',
+transactions = get_transactions(
+    bank_name='hana',
+    bank_num='12345678901234',
     birthday='900101',
     password='1234',
-    days=30,  # Optional, default is 30
-    headless=True  # Optional, default is True (Woori only)
+    days=30,
+    headless=True,
 )
 
-for trs in transaction_list:
-    print(trs['date'], trs['amount'], trs['transaction_by'], trs['balance'])
+for tx in transactions:
+    print(tx['date'], tx['amount'], tx['transaction_by'], tx['balance'])
 ```
 
----
+## 인자 설명
 
-## Args & Returns
+- `bank_name`
+  - `kb`, `kookmin`, `국민`, `국민은행`
+  - `hana`, `hanabank`, `하나`, `하나은행`
+  - `woori`, `wooribank`, `우리`, `우리은행`
+- `bank_num`: 계좌번호 문자열
+- `birthday`: 생년월일 6자리 문자열. 예: `900101`
+- `password`: 계좌 비밀번호 4자리 문자열
+- `days`: 최근 몇 일 거래내역을 가져올지. 기본값 `30`
+- `headless`: 브라우저 화면 없이 실행할지 여부. 기본값 `True`
 
-### Required Arguments
-- `bank_name`: Bank code to crawl. Set to `'kb'` (or `'kookmin'`) or `'woori'`. (String)
-- `bank_num`: Your bank account number. (String)
-- `birthday`: Your birthday with birth year (e.g., if 1994/10/21, use `'941021'`), 6 digits. (String)
-- `password`: Your 4-digit bank account password. (String)
+## 반환값
 
-### Optional Arguments
-- `days`: Number of days to retrieve transactions for. Default is `30`. (Integer)
-- `headless`: Whether to run Chrome/Brave in headless mode (Woori only). Default is `True`. (Boolean)
+리스트를 반환합니다.
+각 원소는 아래 형태의 딕셔너리입니다.
 
-### Return Types
-Returns a `list` of transaction dictionaries. Each dictionary contains:
-- `date`: `datetime` object representing the transaction date and time.
-- `amount`: `int` (positive for deposit, negative for withdrawal).
-- `balance`: `int` representing the balance after transaction.
-- `transaction_by`: `str` representing the sender or transaction description.
-
-#### Example Result
 ```python
-[
-    {
-        'date': datetime.datetime(2026, 6, 9, 13, 28, 15),
-        'amount': -10000,
-        'balance': 0,
-        'transaction_by': '김철수'
-    },
-    {
-        'date': datetime.datetime(2026, 6, 9, 13, 27, 6),
-        'amount': 10000,
-        'balance': 10000,
-        'transaction_by': '홍길동'
-    }
-]
+{
+    'date': datetime.datetime(2026, 6, 10, 9, 30, 0),
+    'amount': -10000,
+    'balance': 250000,
+    'transaction_by': '카카오페이'
+}
 ```
 
----
+- `amount`
+  - 입금: 양수
+  - 출금: 음수
 
-## Update Log
+## `.env`로 테스트하기
 
-#### 0.3.5 (2026-06-09)
-- **Doc**: Simplify README by consolidating examples to only use Woori Bank and adding comments about alternative `bank_name` choices.
-- **API**: Simplify `get_transactions` function signature by removing backward compatibility fallback defaults and `bank` parameter alias.
+예시:
 
-#### 0.3.4 (2026-06-09)
-- **API**: Rename unified function parameter to `bank_name` and define `__all__` to only export `get_transactions`.
+```env
+HANA_ACCOUNT=12345678901234
+HANA_BIRTHDAY=900101
+HANA_PASSWORD=1234
+```
 
-#### 0.3.3 (2026-06-09)
-- **Doc**: Update README to import and use the unified `get_transactions` function from the top-level package.
+실행:
 
-#### 0.3.2 (2026-06-09)
-- **Doc**: Add example output results for Kookmin Bank and Woori Bank transaction queries.
+```bash
+./venv/bin/python run_usage_hana.py
+```
 
-#### 0.3.0 (2026-06-09)
-- **Feature**: Add support for **Woori Bank** transaction crawling.
-- **Mechanism**: Added virtual keypad digit recognition using template matching (`rmsdiff` on element cropped keypads) to work around SEED-128 mouse click coordinates requirement.
-- **Dependencies**: Added `selenium` and `webdriver-manager` requirements.
-- **Compatibility**: Automatic detection and fallback to Brave Browser on macOS.
+## 주의
 
-#### 0.2.15 (2020-06-04)
-- HotFix bugs on `setup.py`
+- 이 라이브러리는 은행 웹페이지 구조가 바뀌면 바로 깨질 수 있습니다.
+- 하나은행, 우리은행은 가상 키패드를 사용하므로 Selenium 브라우저 자동화에 의존합니다.
+- 계좌가 `빠른조회` 대상이 아니면 은행에서 조회를 거절합니다.
+- 민감한 정보는 로컬 환경에서만 다루세요.
 
-#### 0.2.14 (2020-06-04)
-- Fix bugs #4: (downloaded) phantomJS permission error
+## 이번 버전 변경
 
-#### 0.2.13 (2020-06-04)
-- Fix bugs when downloading phantomjs (Linux and macOS only).
-- Add Guide (OS, Progress) when downloading phantomjs.
+`0.3.6`
 
-#### 0.2.10 (2017-11-11)
-- Hot-fix: implicitly import to explicit relevant import to prevent `ImportError`.
+- 하나은행 빠른조회 지원 추가
+- 하나은행 가상 키패드 입력 자동화 추가
+- 패키지에 하나은행 키패드 템플릿 포함
 
+## 면책
+
+이 프로젝트는 학습 및 개인 자동화 용도입니다.
+은행 이용약관이나 관련 규정을 위반할 수 있습니다.
+사용으로 인해 발생하는 문제는 사용자 책임입니다.
