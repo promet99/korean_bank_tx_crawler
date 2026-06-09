@@ -5,3 +5,4 @@ include README.md
 include requirements.txt
 
 include simple_bank_korea/kb/assets/*
+include simple_bank_korea/woori/assets/*
