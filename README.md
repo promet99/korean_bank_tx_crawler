@@ -1,16 +1,20 @@
-# Simple Bank Korea [![PyPI version](https://badge.fury.io/py/simple-bank-korea.svg)](https://badge.fury.io/py/simple-bank-korea) [![Build Status](https://travis-ci.org/Beomi/simple_bank_korea.svg?branch=master)](https://travis-ci.org/Beomi/simple_bank_korea) [![codecov.io](https://codecov.io/github/Beomi/simple_bank_korea/coverage.svg?branch=master)](https://codecov.io/github/Beomi/simple_bank_korea?branch=master)
+# Simple Bank Korea [![PyPI version](https://badge.fury.io/py/simple-bank-korea.svg)](https://badge.fury.io/py/simple-bank-korea)
 
+## Simplest Transaction Crawler for Korean Banks
 
-## Simplest Transaction Crawler for Korea Banks
+Currently supports:
+- **KB국민은행 (Kookmin Bank)**
+- **우리은행 (Woori Bank)**
 
-Requirements:
+### Requirements
 
-- bs4 (BeautifulSoup4)
-- requests
-- python-dateutil
-- selenium
-- pillow (PIL)
-- PhantomJS Binary (Automatically Download, but `libfontconfig` is dependency on Linux)
+- `beautifulsoup4`
+- `requests`
+- `python-dateutil`
+- `pillow`
+- `selenium`
+- `webdriver-manager`
+- Chrome or Brave Browser installed on the system (for virtual keypad template matching)
 
 ## Install
 
@@ -20,96 +24,96 @@ Install package with pip:
 pip install -U simple_bank_korea
 ```
 
-## KB (Kookmin Bank)
+## Before Use
 
-Currently supports KB국민은행(Kookmin Bank) only.
+You must activate the **'빠른조회' (Speed Inquiry)** service for each bank account. You can only query accounts that have been registered for this service.
 
-### Before Use
+- **KB (Kookmin Bank)**: Quick inquiry can be activated on the KB Internet Banking site.
+- **Woori Bank**: Quick inquiry can be activated on the Woori Internet Banking site.
 
-You must activate '빠른조회' service for each banks.
+---
 
-> check this: https://obank.kbstar.com/quics?page=C025255&cc=b028364:b028702&QSL=F#
+## KB (Kookmin Bank) Usage
 
-You can only use service('빠른조회')-registered bank accounts.
-
-### Usage
-
-Import functions from each bank:
+Import the KB-specific transaction function:
 
 ```python
 from simple_bank_korea.kb import get_transactions
 
-# get_transactions returns list of dicts
-# like this:
-# [{'transaction_by': '', 'date': datetime.datetime(2017, 9, 11, 12, 39, 42), 'amount': 50, 'balance': 394}]
-
-# example
+# get_transactions returns a list of transaction dicts
 transaction_list = get_transactions(
-        bank_num='47380204123456',
-        birthday='941021',
-        password='5432',
-        # days=30, # Optional, default is 30
-        # PHANTOM_PATH='/Users/beomi/bin/phantomjs', # Optional, default is 'phantomjs' only.
-        # LOG_PATH='/Users/beomi/phantom.log' # Optional, default is os.path.devnull (no log)
-    )
+    bank_num='47380204123456',
+    birthday='941021',
+    password='5432',
+    days=30  # Optional, default is 30
+)
 
 for trs in transaction_list:
-    print(trs['date'], trs['amount'], trs['transaction_by'])
+    print(trs['date'], trs['amount'], trs['transaction_by'], trs['balance'])
 ```
 
-`get_transactions()` needs `bank_num`, `birthday` and `password`. and optionally you can use `days` arg for specific days from today.(default is 30days(1month))
+---
 
-#### Require Args
+## Woori Bank Usage
 
-- `bank_num`: Your account number. (String)
-- `birthday`: Your birthday with birth year(if 1994/10/21, do '941021'), 6 digits. (String)
-- `password`: Your bank account password. (String)
+Import the Woori-specific transaction function:
 
-#### Optional Args
+```python
+from simple_bank_korea.woori import get_transactions
 
-- `days`: Days you want to get datas. Default is 30 days. (Integer)
-- `PHANTOM_PATH`: Your PhantomJS Binary file Location. 
-  Default is 'phantomjs', expecting registered in PATH. 
-  (If `phantomjs` is not in PATH, automatically download)
-- `LOG_PATH`: Path for phantomjs log file. Default is no logging.
+# get_transactions returns a list of transaction dicts using headless browser automation
+transaction_list = get_transactions(
+    bank_num='REDACTED',
+    birthday='900101',
+    password='1234',
+    days=30,  # Optional, default is 30
+    headless=True  # Optional, default is True
+)
 
-#### Return types
+for trs in transaction_list:
+    print(trs['date'], trs['amount'], trs['transaction_by'], trs['balance'])
+```
 
-`get_transactions()` returns list of dicts, and each dict has `date`, `amount`, `balance` and `transaction_by`.
+---
 
-- `get_transactions()`: returns list of transaction dicts.
+## Args & Returns
 
-- `date`: datetime
-- `amount`: int
-- `balance`: int
-- `transaction_by`: str
+### Required Arguments
+- `bank_num`: Your bank account number. (String)
+- `birthday`: Your birthday with birth year (e.g., if 1994/10/21, use `'941021'`), 6 digits. (String)
+- `password`: Your 4-digit bank account password. (String)
 
+### Optional Arguments
+- `days`: Number of days to retrieve transactions for. Default is `30`. (Integer)
+- `headless`: Whether to run Chrome/Brave in headless mode (Woori only). Default is `True`. (Boolean)
+
+### Return Types
+Returns a `list` of transaction dictionaries. Each dictionary contains:
+- `date`: `datetime` object representing the transaction date and time.
+- `amount`: `int` (positive for deposit, negative for withdrawal).
+- `balance`: `int` representing the balance after transaction.
+- `transaction_by`: `str` representing the sender or transaction description.
+
+---
 
 ## Update Log
 
-#### 0.2.15 (2020-06-04)
+#### 0.3.0 (2026-06-09)
+- **Feature**: Add support for **Woori Bank** transaction crawling.
+- **Mechanism**: Added virtual keypad digit recognition using template matching (`rmsdiff` on element cropped keypads) to work around SEED-128 mouse click coordinates requirement.
+- **Dependencies**: Added `selenium` and `webdriver-manager` requirements.
+- **Compatibility**: Automatic detection and fallback to Brave Browser on macOS.
 
+#### 0.2.15 (2020-06-04)
 - HotFix bugs on `setup.py`
 
 #### 0.2.14 (2020-06-04)
-
 - Fix bugs #4: (downloaded) phantomJS permission error
 
 #### 0.2.13 (2020-06-04)
-
-- Fix bugs when downloading phantomjs.
-    - Fix affects on Linux and macOS only.
-- Add Guide(OS, Progress) when dowloading phantomjs.
+- Fix bugs when downloading phantomjs (Linux and macOS only).
+- Add Guide (OS, Progress) when downloading phantomjs.
 
 #### 0.2.10 (2017-11-11)
+- Hot-fix: implicitly import to explicit relevant import to prevent `ImportError`.
 
-- Hot-fix: implicitly import to explicit relevant import to prevent `ImportError`
-
-#### 0.2.9 (2017-11-11)
-
-- Download PhantomJS Binary if `phantomjs` is not in PATH
-
-#### 0.2.8 (2017-09-18)
-
-- Add caching strategy (using temp folder with saving touch-keys)
-- Fix typo in v0.2.7
