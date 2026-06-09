@@ -2,7 +2,7 @@ from setuptools import setup, find_namespace_packages
 import os
 
 REQ_FILE = 'requirements.txt'
-VERSION = '0.3.4'
+VERSION = '0.3.5'
 
 def get_requires():
     thisdir = os.path.dirname(__file__)

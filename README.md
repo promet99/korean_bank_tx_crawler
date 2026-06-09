@@ -44,28 +44,10 @@ Import the unified `get_transactions` function from `simple_bank_korea`:
 
 ```python
 from simple_bank_korea import get_transactions
-```
 
-### KB Kookmin Bank Example
-
-```python
+# bank_name can be either 'kb' (or 'kookmin') or 'woori'
 transaction_list = get_transactions(
-    bank_name='kb',
-    bank_num='47380204123456',
-    birthday='941021',
-    password='5432',
-    days=30  # Optional, default is 30
-)
-
-for trs in transaction_list:
-    print(trs['date'], trs['amount'], trs['transaction_by'], trs['balance'])
-```
-
-### Woori Bank Example
-
-```python
-transaction_list = get_transactions(
-    bank_name='woori',
+    bank_name='woori', 
     bank_num='REDACTED',
     birthday='900101',
     password='1234',
@@ -98,25 +80,7 @@ Returns a `list` of transaction dictionaries. Each dictionary contains:
 - `balance`: `int` representing the balance after transaction.
 - `transaction_by`: `str` representing the sender or transaction description.
 
-#### KB Kookmin Bank Example Result
-```python
-[
-    {
-        'date': datetime.datetime(2026, 5, 8, 0, 41, 52),
-        'amount': -27300,
-        'balance': 125000,
-        'transaction_by': '홍길동'
-    },
-    {
-        'date': datetime.datetime(2026, 5, 6, 15, 21, 31),
-        'amount': 27300,
-        'balance': 152300,
-        'transaction_by': '온라인쇼핑'
-    }
-]
-```
-
-#### Woori Bank Example Result
+#### Example Result
 ```python
 [
     {
@@ -137,6 +101,10 @@ Returns a `list` of transaction dictionaries. Each dictionary contains:
 ---
 
 ## Update Log
+
+#### 0.3.5 (2026-06-09)
+- **Doc**: Simplify README by consolidating examples to only use Woori Bank and adding comments about alternative `bank_name` choices.
+- **API**: Simplify `get_transactions` function signature by removing backward compatibility fallback defaults and `bank` parameter alias.
 
 #### 0.3.4 (2026-06-09)
 - **API**: Rename unified function parameter to `bank_name` and define `__all__` to only export `get_transactions`.

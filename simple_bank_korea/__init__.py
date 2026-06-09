@@ -3,7 +3,7 @@ from .woori.crawler import get_transactions as woori_get_transactions
 
 __all__ = ['get_transactions']
 
-def get_transactions(bank_name=None, bank_num=None, birthday=None, password=None, bank=None, **kwargs):
+def get_transactions(bank_name, bank_num, birthday, password, **kwargs):
     """
     Get transactions from the specified bank.
     
@@ -14,14 +14,10 @@ def get_transactions(bank_name=None, bank_num=None, birthday=None, password=None
     :param kwargs: optional arguments (days, etc.)
     :return: list of transaction dicts
     """
-    selected_bank = bank_name or bank
-    if not selected_bank:
-        raise ValueError("bank_name is a required argument")
-
-    bank_clean = str(selected_bank).strip().lower()
+    bank_clean = str(bank_name).strip().lower()
     if bank_clean in ('kb', 'kookmin', '국민', '국민은행'):
         return kb_get_transactions(bank_num=bank_num, birthday=birthday, password=password, **kwargs)
     elif bank_clean in ('woori', 'wooribank', '우리', '우리은행'):
         return woori_get_transactions(bank_num=bank_num, birthday=birthday, password=password, **kwargs)
     else:
-        raise ValueError(f"Unsupported bank: {selected_bank}")
+        raise ValueError(f"Unsupported bank: {bank_name}")

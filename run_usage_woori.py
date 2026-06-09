@@ -19,7 +19,7 @@ print(f"  bank_num: {bank_num}")
 print(f"  birthday: {birthday}")
 
 transaction_list = get_transactions(
-    bank='woori',
+    bank_name='woori',
     bank_num=bank_num,
     birthday=birthday,
     password=password,
