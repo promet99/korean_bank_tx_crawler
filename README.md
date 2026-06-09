@@ -50,7 +50,7 @@ from simple_bank_korea import get_transactions
 
 ```python
 transaction_list = get_transactions(
-    bank='kb',
+    bank_name='kb',
     bank_num='47380204123456',
     birthday='941021',
     password='5432',
@@ -65,7 +65,7 @@ for trs in transaction_list:
 
 ```python
 transaction_list = get_transactions(
-    bank='woori',
+    bank_name='woori',
     bank_num='REDACTED',
     birthday='900101',
     password='1234',
@@ -82,7 +82,7 @@ for trs in transaction_list:
 ## Args & Returns
 
 ### Required Arguments
-- `bank`: Bank code to crawl. Set to `'kb'` (or `'kookmin'`) or `'woori'`. (String)
+- `bank_name`: Bank code to crawl. Set to `'kb'` (or `'kookmin'`) or `'woori'`. (String)
 - `bank_num`: Your bank account number. (String)
 - `birthday`: Your birthday with birth year (e.g., if 1994/10/21, use `'941021'`), 6 digits. (String)
 - `password`: Your 4-digit bank account password. (String)
@@ -137,6 +137,9 @@ Returns a `list` of transaction dictionaries. Each dictionary contains:
 ---
 
 ## Update Log
+
+#### 0.3.4 (2026-06-09)
+- **API**: Rename unified function parameter to `bank_name` and define `__all__` to only export `get_transactions`.
 
 #### 0.3.3 (2026-06-09)
 - **Doc**: Update README to import and use the unified `get_transactions` function from the top-level package.
