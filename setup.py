@@ -11,7 +11,7 @@ def get_requires():
 
 setup(name='korean_bank_tx_crawler',
       version=VERSION,
-      url='https://github.com/beomi/simple_bank_korea',
+      url='https://github.com/promet99/simple_bank_korea',
       license='MIT',
       author='Junbum Lee',
       author_email='jun@beomi.net',

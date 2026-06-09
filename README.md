@@ -1,5 +1,7 @@
 # Korean Bank Tx Crawler [![PyPI version](https://badge.fury.io/py/korean-bank-tx-crawler.svg)](https://badge.fury.io/py/korean-bank-tx-crawler)
 
+> **Forked from [beomi/simple_bank_korea](https://github.com/beomi/simple_bank_korea)**
+
 ## Simplest Transaction Crawler for Korean Banks
 
 Currently supports:
@@ -96,6 +98,24 @@ Returns a `list` of transaction dictionaries. Each dictionary contains:
 - `amount`: `int` (positive for deposit, negative for withdrawal).
 - `balance`: `int` representing the balance after transaction.
 - `transaction_by`: `str` representing the sender or transaction description.
+
+#### Example Result
+```python
+[
+    {
+        'date': datetime.datetime(2026, 5, 8, 0, 41, 52),
+        'amount': -27300,
+        'balance': 125000,
+        'transaction_by': '박상준'
+    },
+    {
+        'date': datetime.datetime(2026, 5, 6, 15, 21, 31),
+        'amount': 27300,
+        'balance': 152300,
+        'transaction_by': '(주)알라딘커뮤니케'
+    }
+]
+```
 
 ---
 
