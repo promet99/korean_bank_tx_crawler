@@ -1,5 +1,5 @@
 import os
-from simple_bank_korea.woori import get_transactions
+from simple_bank_korea import get_transactions
 
 # Manually parse .env to avoid extra dependencies
 env = {}
@@ -19,6 +19,7 @@ print(f"  bank_num: {bank_num}")
 print(f"  birthday: {birthday}")
 
 transaction_list = get_transactions(
+    bank='woori',
     bank_num=bank_num,
     birthday=birthday,
     password=password,
