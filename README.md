@@ -38,15 +38,19 @@ You must activate the **'빠른조회' (Speed Inquiry)** service for each bank a
 
 ---
 
-## KB (Kookmin Bank) Usage
+## Usage
 
-Import the KB-specific transaction function:
+Import the unified `get_transactions` function from `simple_bank_korea`:
 
 ```python
-from simple_bank_korea.kb import get_transactions
+from simple_bank_korea import get_transactions
+```
 
-# get_transactions returns a list of transaction dicts
+### KB Kookmin Bank Example
+
+```python
 transaction_list = get_transactions(
+    bank='kb',
     bank_num='47380204123456',
     birthday='941021',
     password='5432',
@@ -57,22 +61,16 @@ for trs in transaction_list:
     print(trs['date'], trs['amount'], trs['transaction_by'], trs['balance'])
 ```
 
----
-
-## Woori Bank Usage
-
-Import the Woori-specific transaction function:
+### Woori Bank Example
 
 ```python
-from simple_bank_korea.woori import get_transactions
-
-# get_transactions returns a list of transaction dicts using headless browser automation
 transaction_list = get_transactions(
+    bank='woori',
     bank_num='REDACTED',
     birthday='900101',
     password='1234',
     days=30,  # Optional, default is 30
-    headless=True  # Optional, default is True
+    headless=True  # Optional, default is True (Woori only)
 )
 
 for trs in transaction_list:
@@ -84,6 +82,7 @@ for trs in transaction_list:
 ## Args & Returns
 
 ### Required Arguments
+- `bank`: Bank code to crawl. Set to `'kb'` (or `'kookmin'`) or `'woori'`. (String)
 - `bank_num`: Your bank account number. (String)
 - `birthday`: Your birthday with birth year (e.g., if 1994/10/21, use `'941021'`), 6 digits. (String)
 - `password`: Your 4-digit bank account password. (String)
@@ -138,6 +137,9 @@ Returns a `list` of transaction dictionaries. Each dictionary contains:
 ---
 
 ## Update Log
+
+#### 0.3.3 (2026-06-09)
+- **Doc**: Update README to import and use the unified `get_transactions` function from the top-level package.
 
 #### 0.3.2 (2026-06-09)
 - **Doc**: Add example output results for Kookmin Bank and Woori Bank transaction queries.
