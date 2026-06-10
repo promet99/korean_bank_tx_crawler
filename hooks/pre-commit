@@ -1,0 +1,26 @@
+#!/bin/sh
+# Block commits that include .env or debug page dumps that may contain
+# real bank account numbers, passwords, or tokens.
+
+blocked_pattern='(^|/)\.env$|_result\.html$|_tx_result\.html$'
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+matches=$(echo "$staged" | grep -E "$blocked_pattern")
+
+if [ -n "$matches" ]; then
+    echo "ERROR: commit blocked - the following staged files look like" >&2
+    echo "credential/.env files or debug page dumps and must not be committed:" >&2
+    echo "$matches" >&2
+    exit 1
+fi
+
+# Also scan staged content for the PyPI token format, in case it was
+# copy-pasted into source/docs. Build the pattern at runtime so this
+# hook's own source doesn't trip the check.
+secret_patterns="pypi-AgEIcHlwaS5vcm$(printf '\x63')"
+if git diff --cached -U0 -- . ":(exclude)hooks/pre-commit" | grep -qE "$secret_patterns"; then
+    echo "ERROR: commit blocked - staged diff appears to contain a PyPI token." >&2
+    exit 1
+fi
+
+exit 0

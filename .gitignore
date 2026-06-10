@@ -175,6 +175,10 @@ celerybeat-schedule
 # dotenv
 .env
 
+# debug page dumps (may contain account credentials/personal data)
+*_result.html
+*_tx_result.html
+
 # virtualenv
 .venv
 venv/

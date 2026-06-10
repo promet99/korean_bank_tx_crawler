@@ -71,6 +71,15 @@ for tx in transactions:
   - 입금: 양수
   - 출금: 음수
 
+## 개발 환경 설정
+
+저장소를 clone한 후, `.env`나 디버그용 HTML이 실수로 커밋되는 것을 막는
+pre-commit 훅을 한 번 설치하세요.
+
+```bash
+./scripts/install-hooks.sh
+```
+
 ## `.env`로 테스트하기
 
 예시:
