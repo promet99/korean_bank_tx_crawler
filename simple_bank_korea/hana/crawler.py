@@ -15,6 +15,8 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
 HANA_URL = 'https://www.kebhana.com/flex/quick/quickService.do?subMenu=1'
@@ -356,6 +358,16 @@ def get_transactions(bank_num, birthday, password, days=30,
         _enter_account_number(driver, bank_num, account_templates)
         _enter_numeric_secret(driver, 'acctPw', numeric_templates, password)
         _enter_numeric_secret(driver, 'bkfgResRegNo', numeric_templates, birthday)
+
+        try:
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.ID, 'inqStrDt'))
+            )
+        except Exception:
+            raise ValueError(
+                "Timed out waiting for Hana date field 'inqStrDt'. "
+                "The bank page structure may have changed."
+            )
 
         end_dt = datetime.datetime.now()
         max_span = 730

@@ -4,57 +4,230 @@ import math
 import operator
 import datetime
 from functools import reduce
-from PIL import Image, ImageChops
 from io import BytesIO
+
 from bs4 import BeautifulSoup as bs
 from dateutil import parser
-
+from PIL import Image, ImageChops
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+from webdriver_manager.chrome import ChromeDriverManager
+
 
 def rmsdiff(im1, im2):
     im1 = im1.convert('RGBA')
     im2 = im2.convert('RGBA')
     h = ImageChops.difference(im1, im2).histogram()
-    return math.sqrt(reduce(operator.add,
-                            map(lambda h, i: h * (i ** 2), h, range(256))
-                            ) / (float(im1.size[0]) * im1.size[1]))
+    return math.sqrt(
+        reduce(operator.add, map(lambda h, i: h * (i ** 2), h, range(256)))
+        / (float(im1.size[0]) * im1.size[1])
+    )
+
 
 keys_info = [
-    {"index": 0, "coords": [161, 74, 205, 116], "center": (183, 95)},
-    {"index": 1, "coords": [208, 74, 252, 116], "center": (230, 95)},
-    {"index": 2, "coords": [208, 120, 252, 162], "center": (230, 141)},
-    {"index": 3, "coords": [208, 166, 252, 208], "center": (230, 187)},
-    {"index": 4, "coords": [208, 212, 252, 254], "center": (230, 233)},
-    {"index": 5, "coords": [161, 212, 205, 254], "center": (183, 233)},
-    {"index": 6, "coords": [114, 212, 158, 254], "center": (136, 233)},
-    {"index": 7, "coords": [67, 212, 111, 254], "center": (89, 233)},
-    {"index": 8, "coords": [67, 166, 111, 208], "center": (89, 187)},
-    {"index": 9, "coords": [67, 120, 111, 162], "center": (89, 141)},
-    {"index": 10, "coords": [67, 74, 111, 116], "center": (89, 95)},
-    {"index": 11, "coords": [114, 74, 158, 116], "center": (136, 95)}
+    {"index": 0,  "coords": [161, 74,  205, 116], "center": (183, 95)},
+    {"index": 1,  "coords": [208, 74,  252, 116], "center": (230, 95)},
+    {"index": 2,  "coords": [208, 120, 252, 162], "center": (230, 141)},
+    {"index": 3,  "coords": [208, 166, 252, 208], "center": (230, 187)},
+    {"index": 4,  "coords": [208, 212, 252, 254], "center": (230, 233)},
+    {"index": 5,  "coords": [161, 212, 205, 254], "center": (183, 233)},
+    {"index": 6,  "coords": [114, 212, 158, 254], "center": (136, 233)},
+    {"index": 7,  "coords": [67,  212, 111, 254], "center": (89,  233)},
+    {"index": 8,  "coords": [67,  166, 111, 208], "center": (89,  187)},
+    {"index": 9,  "coords": [67,  120, 111, 162], "center": (89,  141)},
+    {"index": 10, "coords": [67,  74,  111, 116], "center": (89,  95)},
+    {"index": 11, "coords": [114, 74,  158, 116], "center": (136, 95)},
 ]
+
+# Ordered fallback selectors for each step — first match wins.
+# Extend these lists when the bank updates their page without touching logic.
+_DATE_FIELD_IDS = [
+    ('INQ_STA_DT', 'INQ_END_DT'),
+    ('inqStaDt',   'inqEndDt'),
+    ('startDt',    'endDt'),
+    ('fromDate',   'toDate'),
+]
+
+_INQUIRY_BUTTON_SELECTORS = [
+    (By.CSS_SELECTOR, "input[type='submit'][value='조회']"),
+    (By.CSS_SELECTOR, "input[value='조회']"),
+    (By.XPATH,        "//input[@value='조회']"),
+    (By.XPATH,        "//button[normalize-space()='조회']"),
+    (By.XPATH,        "//a[normalize-space()='조회']"),
+]
+
+_TABLE_SELECTORS = [
+    'table.tbl-type-1',
+    'table.tbl-type',
+    'table[summary]',
+]
+
+
+def _dismiss_alerts(driver, max_alerts=5):
+    for _ in range(max_alerts):
+        try:
+            driver.switch_to.alert.dismiss()
+            time.sleep(0.5)
+        except Exception:
+            break
+
+
+def _wait_for_inquiry_form(driver, timeout=15):
+    """Wait for the date-range form after login.
+
+    Tries known element IDs/names so a single renamed field doesn't break
+    everything — returns the (start_id, end_id) pair that was found.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        for sta_id, end_id in _DATE_FIELD_IDS:
+            for by, val in [(By.ID, sta_id), (By.NAME, sta_id),
+                            (By.CSS_SELECTOR, f'input[name="{sta_id}"]')]:
+                try:
+                    driver.find_element(by, val)
+                    return sta_id, end_id
+                except Exception:
+                    pass
+        time.sleep(0.5)
+
+    raise ValueError(
+        "Timed out waiting for Woori inquiry date-range form after login. "
+        f"Tried IDs: {[s for s, _ in _DATE_FIELD_IDS]}. "
+        "Authentication may have failed, or the bank changed their selectors."
+    )
+
+
+def _set_date_range(driver, sta_id, end_id, start_str, end_str):
+    """Set start/end date using the page's own calSetVal, with a direct
+    value-assignment fallback for when the JS API changes."""
+    for field_id, value in [(sta_id, start_str), (end_id, end_str)]:
+        set_ok = driver.execute_script(
+            """
+            if (typeof calSetVal === 'function') {
+                calSetVal(arguments[0], arguments[1]);
+                return true;
+            }
+            return false;
+            """,
+            field_id, value,
+        )
+        if not set_ok:
+            driver.execute_script(
+                """
+                var el = document.getElementById(arguments[0])
+                      || document.querySelector('[name="' + arguments[0] + '"]');
+                if (el) el.value = arguments[1];
+                """,
+                field_id, value,
+            )
+
+
+def _click_inquiry_button(driver):
+    for by, selector in _INQUIRY_BUTTON_SELECTORS:
+        try:
+            driver.find_element(by, selector).click()
+            return
+        except Exception:
+            pass
+    raise ValueError(
+        "Could not find the 조회 (inquiry) button. "
+        f"Tried selectors: {[s for _, s in _INQUIRY_BUTTON_SELECTORS]}"
+    )
+
+
+def _parse_transactions(soup):
+    """Parse the transaction table, deriving column indices from the header
+    row so column reordering doesn't silently corrupt the output."""
+    table = None
+    for sel in _TABLE_SELECTORS:
+        table = soup.select_one(sel)
+        if table:
+            break
+    if not table:
+        return []
+
+    header_cells = table.select('thead th') or table.select('tr:first-child th')
+    headers = [th.get_text(' ', strip=True) for th in header_cells]
+
+    def _col(keywords):
+        for i, h in enumerate(headers):
+            if any(k in h for k in keywords):
+                return i
+        return None
+
+    date_col       = _col(['거래일시', '거래일자', '일시', '일자'])
+    brief_col      = _col(['적요'])
+    detail_col     = _col(['기재내용', '내용'])
+    withdrawal_col = _col(['찾으신금액', '출금'])
+    deposit_col    = _col(['맡기신금액', '입금'])
+    balance_col    = _col(['거래후잔액', '잔액'])
+
+    transactions = []
+    for row in table.select('tbody tr'):
+        tds = row.select('td')
+        if not tds:
+            continue
+
+        # Date — may be wrapped in an <a>
+        if date_col is not None and date_col < len(tds):
+            a = tds[date_col].select_one('a')
+            date_text = (a or tds[date_col]).get_text(' ', strip=True)
+        elif tds:
+            a = tds[0].select_one('a')
+            date_text = (a or tds[0]).get_text(' ', strip=True)
+        else:
+            continue
+
+        try:
+            date = parser.parse(date_text)
+        except (ValueError, TypeError):
+            continue
+
+        def _int(col):
+            if col is None or col >= len(tds):
+                return 0
+            return int(tds[col].get_text(' ', strip=True).replace(',', '').strip() or 0)
+
+        withdrawal = _int(withdrawal_col)
+        deposit    = _int(deposit_col)
+        amount     = deposit - withdrawal
+
+        balance = _int(balance_col)
+
+        brief  = tds[brief_col].get_text(' ', strip=True)  if brief_col  is not None and brief_col  < len(tds) else ''
+        detail = tds[detail_col].get_text(' ', strip=True) if detail_col is not None and detail_col < len(tds) else ''
+        transaction_by = detail or brief
+
+        transactions.append({
+            'date': date,
+            'amount': amount,
+            'balance': balance,
+            'transaction_by': transaction_by,
+        })
+
+    return transactions
+
 
 def get_transactions(bank_num, birthday, password, days=30,
                      PHANTOM_PATH=None,
                      LOG_PATH=os.path.devnull,
                      cache=False,
                      headless=True):
+    del PHANTOM_PATH, LOG_PATH, cache
+
     bank_num = str(bank_num).replace('-', '')
     birthday = str(birthday)
     password = str(password)
-    days = int(days)
+    days     = int(days)
 
-    # Load templates relative to this file
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    assets_dir = os.path.join(current_dir, 'assets')
-    templates = {}
-    for d in range(10):
-        templates[d] = Image.open(os.path.join(assets_dir, f"{d}.png"))
+    assets_dir  = os.path.join(current_dir, 'assets')
+    templates   = {d: Image.open(os.path.join(assets_dir, f'{d}.png')) for d in range(10)}
 
     chrome_options = Options()
     if headless:
@@ -63,174 +236,97 @@ def get_transactions(bank_num, birthday, password, days=30,
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
 
-    # Fallback detection for Brave Browser on macOS
     brave_path = '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser'
     if os.path.exists(brave_path):
         chrome_options.binary_location = brave_path
 
     service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=chrome_options)
+    driver  = webdriver.Chrome(service=service, options=chrome_options)
 
     try:
         driver.get('https://spib.wooribank.com/pib/Dream?withyou=CMSPD0010')
         time.sleep(2)
+        _dismiss_alerts(driver)
 
-        # Dismiss alerts (e.g. security install prompt)
-        for _ in range(5):
-            try:
-                alert = driver.switch_to.alert
-                alert.dismiss()
-                time.sleep(0.5)
-            except:
-                break
-
-        # Enter account number
         acc_input = driver.find_element(By.ID, 'pup01')
         acc_input.clear()
         acc_input.send_keys(bank_num)
 
-        # Helper to enter via virtual keypad
         def enter_via_keypad(input_id, layout_id, value_str):
-            input_el = driver.find_element(By.ID, input_id)
-            input_el.click()
+            driver.find_element(By.ID, input_id).click()
             time.sleep(1)
 
-            img_el = driver.find_element(By.CSS_SELECTOR, f"#{layout_id} img")
-            img_png = img_el.screenshot_as_png
-            keypad_img = Image.open(BytesIO(img_png))
+            img_el     = driver.find_element(By.CSS_SELECTOR, f'#{layout_id} img')
+            keypad_img = Image.open(BytesIO(img_el.screenshot_as_png))
 
             digit_map = {}
             for key in keys_info:
-                crop = keypad_img.crop(key["coords"])
-                min_diff = 9999
-                matched_digit = None
-                for d, t_img in templates.items():
-                    diff = rmsdiff(crop, t_img)
-                    if diff < min_diff:
-                        min_diff = diff
-                        matched_digit = d
-                if min_diff < 15:
-                    digit_map[str(matched_digit)] = key["center"]
+                crop = keypad_img.crop(key['coords'])
+                best_diff, best_digit = 9999, None
+                for d, tmpl in templates.items():
+                    diff = rmsdiff(crop, tmpl)
+                    if diff < best_diff:
+                        best_diff, best_digit = diff, d
+                if best_diff < 15:
+                    digit_map[str(best_digit)] = key['center']
 
             for char in value_str:
-                if char in digit_map:
-                    center = digit_map[char]
-                    offset_x = center[0] - 157.5
-                    offset_y = center[1] - 135.5
-                    action = ActionChains(driver)
-                    action.move_to_element_with_offset(img_el, offset_x, offset_y).click().perform()
-                    time.sleep(0.5)
-                else:
-                    raise Exception(f"Digit {char} not found in virtual keypad mapping!")
+                if char not in digit_map:
+                    raise ValueError(f"Digit '{char}' not found in Woori virtual keypad.")
+                cx, cy = digit_map[char]
+                ActionChains(driver).move_to_element_with_offset(
+                    img_el, cx - 157.5, cy - 135.5
+                ).click().perform()
+                time.sleep(0.5)
 
         enter_via_keypad('pup03', 'Tk_pup03_layoutSingle', birthday)
         enter_via_keypad('pup02', 'Tk_pup02_layoutSingle', password)
         time.sleep(1)
 
-        # Find the submit button and click it
+        # Click the authentication submit button
         clicked = False
-        try:
-            links = driver.find_elements(By.TAG_NAME, 'a')
-            for l in links:
-                onclick = l.get_attribute('onclick') or ''
-                text = l.text.strip()
-                if 'doSubmit' in onclick or text == '확인':
-                    l.click()
-                    clicked = True
-                    break
-        except Exception:
-            pass
-
+        for link in driver.find_elements(By.TAG_NAME, 'a'):
+            onclick = link.get_attribute('onclick') or ''
+            if 'doSubmit' in onclick or link.text.strip() == '확인':
+                link.click()
+                clicked = True
+                break
         if not clicked:
-            submit_btn = driver.find_element(By.CSS_SELECTOR, 'a.btn-pack.btn-type-3c')
-            submit_btn.click()
+            driver.find_element(By.CSS_SELECTOR, 'a.btn-pack.btn-type-3c').click()
 
+        # Wait for navigation, then dismiss the recurring security alerts.
+        # The sleep must precede the loop — without it the loop exits before
+        # the alerts appear and they block subsequent JS execution.
         time.sleep(3)
+        _dismiss_alerts(driver)
 
-        # Dismiss alerts on post-submit page
-        for _ in range(5):
-            try:
-                alert = driver.switch_to.alert
-                alert.dismiss()
-                time.sleep(0.5)
-            except:
-                break
-
-        # Query transaction history for specified days
-        end_dt = datetime.datetime.now()
-        start_dt = end_dt - datetime.timedelta(days=days)
-        start_str = start_dt.strftime('%Y%m%d')
-        end_str = end_dt.strftime('%Y%m%d')
-
-        driver.execute_script(f"document.getElementById('INQ_STA_DT').value = '{start_str}';")
-        driver.execute_script(f"document.getElementById('INQ_END_DT').value = '{end_str}';")
-
-        # Click the Inquiry (조회) button
-        inquiry_clicked = False
+        # Fast-fail on authentication error page rather than waiting 15s.
         try:
-            inquiry_btn = driver.find_element(By.CSS_SELECTOR, "input[value='조회']")
-            inquiry_btn.click()
-            inquiry_clicked = True
+            driver.find_element(By.ID, 'error-area-TopLayer')
+            raise ValueError(
+                "Woori bank returned an authentication error page. "
+                "Check your credentials, or wait a few minutes if you've "
+                "made several login attempts in a short period."
+            )
+        except ValueError:
+            raise
         except Exception:
             pass
 
-        if not inquiry_clicked:
-            inquiry_btn = driver.find_element(By.XPATH, "//input[@value='조회']")
-            inquiry_btn.click()
+        sta_id, end_id = _wait_for_inquiry_form(driver)
+
+        end_dt   = datetime.datetime.now()
+        start_dt = end_dt - datetime.timedelta(days=days)
+        _set_date_range(driver, sta_id, end_id,
+                        start_dt.strftime('%Y%m%d'),
+                        end_dt.strftime('%Y%m%d'))
+
+        _click_inquiry_button(driver)
 
         time.sleep(3)
+        _dismiss_alerts(driver)
 
-        # Dismiss alerts on transaction list page
-        for _ in range(5):
-            try:
-                alert = driver.switch_to.alert
-                alert.dismiss()
-                time.sleep(0.5)
-            except:
-                break
-
-        # Parse transaction list from page source
-        soup = bs(driver.page_source, 'html.parser')
-        table = soup.select_one('table.tbl-type-1')
-        if not table:
-            return []
-
-        rows = table.select('tbody tr')
-        transaction_list = []
-        for row in rows:
-            tds = row.select('td')
-            if len(tds) < 7:
-                continue
-
-            a_tag = tds[0].select_one('a')
-            if not a_tag:
-                continue
-            date_text = a_tag.text.strip()
-            date = parser.parse(date_text)
-
-            brief = tds[1].text.strip()
-            detail = tds[2].text.strip()
-            transaction_by = detail if detail else brief
-
-            w_text = tds[3].text.replace(',', '').strip()
-            d_text = tds[4].text.replace(',', '').strip()
-
-            withdrawal = int(w_text) if w_text else 0
-            deposit = int(d_text) if d_text else 0
-
-            amount = -withdrawal if withdrawal else deposit
-
-            bal_text = tds[5].text.replace(',', '').strip()
-            balance = int(bal_text) if bal_text else 0
-
-            transaction_list.append({
-                'date': date,
-                'amount': amount,
-                'balance': balance,
-                'transaction_by': transaction_by
-            })
-
-        return transaction_list
+        return _parse_transactions(bs(driver.page_source, 'html.parser'))
 
     finally:
         driver.quit()
