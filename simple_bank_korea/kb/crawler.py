@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import requests
 from bs4 import BeautifulSoup as bs
 import datetime
@@ -5,18 +7,48 @@ from dateutil import parser
 import os
 import json
 import tempfile
+from typing import Any, Dict, List, Optional
+from typing_extensions import TypedDict
 
 from .image_checker import get_keypad_img
 
 TMP_DIR = tempfile.gettempdir()
 
 
-def get_transactions(bank_num, birthday, password, days=30,
-                     PHANTOM_PATH=None,
-                     LOG_PATH=os.path.devnull,
-                     cache=False):
+class _KeypadInfo(TypedDict):
+    PW_DIGITS: Dict[str, str]
+    KEYMAP: str
+    JSESSIONID: str
+    QSID: str
+    KEYPAD_USEYN: str
 
-    def _get_transactions(VIRTUAL_KEYPAD_INFO, bank_num, birthday, password, days, LOG_PATH):
+
+class Transaction(TypedDict):
+    date: datetime.datetime
+    amount: int
+    balance: int
+    transaction_by: str
+
+
+
+def get_transactions(
+    bank_num: str | int,
+    birthday: str | int,
+    password: str | int,
+    days: int = 30,
+    PHANTOM_PATH: Optional[str] = None,
+    LOG_PATH: str = os.path.devnull,
+    cache: bool = False,
+) -> List[Transaction]:
+
+    def _get_transactions(
+        VIRTUAL_KEYPAD_INFO: _KeypadInfo,
+        bank_num: str,
+        birthday: str,
+        password: str,
+        days: int,
+        LOG_PATH: str,
+    ) -> List[Transaction]:
         PW_DIGITS = VIRTUAL_KEYPAD_INFO['PW_DIGITS']
         KEYMAP = VIRTUAL_KEYPAD_INFO['KEYMAP']
         JSESSIONID = VIRTUAL_KEYPAD_INFO['JSESSIONID']

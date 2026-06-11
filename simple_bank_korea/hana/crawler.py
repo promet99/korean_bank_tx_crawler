@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 import json
 import math
@@ -6,6 +8,8 @@ import os
 import time
 from functools import reduce
 from io import BytesIO
+from typing import Any, Dict, List, Optional, Tuple
+from typing_extensions import TypedDict
 
 from bs4 import BeautifulSoup as bs
 from dateutil import parser
@@ -23,7 +27,21 @@ HANA_URL = 'https://www.kebhana.com/flex/quick/quickService.do?subMenu=1'
 HANA_XHR_URL = '/quick_service/inquiryAcct02_01.do'
 
 
-def rmsdiff(im1, im2):
+class Transaction(TypedDict):
+    date: datetime.datetime
+    amount: int
+    balance: int
+    transaction_by: str
+
+
+class _DigiKey(TypedDict):
+    center_x: float
+    center_y: float
+    diff: float
+
+
+
+def rmsdiff(im1: Image.Image, im2: Image.Image) -> float:
     im1 = im1.convert('RGBA')
     im2 = im2.convert('RGBA')
     h = ImageChops.difference(im1, im2).histogram()
@@ -33,14 +51,19 @@ def rmsdiff(im1, im2):
     )
 
 
-def _load_digit_templates(assets_dir):
+def _load_digit_templates(assets_dir: str) -> Dict[str, Image.Image]:
     return {
         str(digit): Image.open(os.path.join(assets_dir, f'{digit}.png'))
         for digit in range(10)
     }
 
 
-def _build_digit_map(keypad_img, keys, templates, threshold):
+def _build_digit_map(
+    keypad_img: Image.Image,
+    keys: List[Dict[str, Any]],
+    templates: Dict[str, Image.Image],
+    threshold: float,
+) -> Dict[str, _DigiKey]:
     digit_map = {}
     for key in keys:
         if key.get('name'):
@@ -70,7 +93,12 @@ def _build_digit_map(keypad_img, keys, templates, threshold):
     return digit_map
 
 
-def _click_transkey_chars(driver, image_el, digit_map, value):
+def _click_transkey_chars(
+    driver: webdriver.Chrome,
+    image_el: Any,
+    digit_map: Dict[str, _DigiKey],
+    value: str,
+) -> None:
     rect = driver.execute_script(
         'const r = arguments[0].getBoundingClientRect();'
         'return {width: r.width, height: r.height};',
@@ -88,7 +116,7 @@ def _click_transkey_chars(driver, image_el, digit_map, value):
         time.sleep(0.25)
 
 
-def _close_transkey(driver, transkey_name):
+def _close_transkey(driver: webdriver.Chrome, transkey_name: str) -> None:
     driver.execute_script(
         '''
         var tk = window.transkey && window.transkey[arguments[0]];
@@ -101,7 +129,11 @@ def _close_transkey(driver, transkey_name):
     time.sleep(0.4)
 
 
-def _enter_account_number(driver, bank_num, templates):
+def _enter_account_number(
+    driver: webdriver.Chrome,
+    bank_num: str,
+    templates: Dict[str, Image.Image],
+) -> None:
     driver.find_element(By.ID, 'acctNo').click()
     time.sleep(1.5)
 
@@ -113,7 +145,12 @@ def _enter_account_number(driver, bank_num, templates):
     _close_transkey(driver, 'Tk_acctNo')
 
 
-def _enter_numeric_secret(driver, field_id, templates, value):
+def _enter_numeric_secret(
+    driver: webdriver.Chrome,
+    field_id: str,
+    templates: Dict[str, Image.Image],
+    value: str,
+) -> None:
     driver.find_element(By.ID, field_id).click()
     time.sleep(1.5)
 
@@ -125,7 +162,7 @@ def _enter_numeric_secret(driver, field_id, templates, value):
     _close_transkey(driver, f'Tk_{field_id}')
 
 
-def _compute_hana_account_type(bank_num):
+def _compute_hana_account_type(bank_num: str | int) -> str:
     acct_no = str(bank_num)
     acct_kind = 1
 
@@ -169,7 +206,7 @@ def _compute_hana_account_type(bank_num):
     return '09'
 
 
-def _install_xhr_capture(driver):
+def _install_xhr_capture(driver: webdriver.Chrome) -> None:
     driver.execute_script(
         '''
         window.__hana_xhr_log = [];
@@ -203,7 +240,9 @@ def _install_xhr_capture(driver):
     )
 
 
-def _wait_for_inquiry_response(driver, timeout=20):
+def _wait_for_inquiry_response(
+    driver: webdriver.Chrome, timeout: int = 20
+) -> Dict[str, Any]:
     end_time = time.time() + timeout
     while time.time() < end_time:
         response = driver.execute_script(
@@ -224,7 +263,7 @@ def _wait_for_inquiry_response(driver, timeout=20):
     raise TimeoutError('Timed out waiting for Hana inquiry response.')
 
 
-def _parse_error_response(response_text):
+def _parse_error_response(response_text: str) -> Optional[str]:
     try:
         payload = json.loads(response_text)
     except json.JSONDecodeError:
@@ -237,7 +276,9 @@ def _parse_error_response(response_text):
     return None
 
 
-def _find_transaction_table(soup):
+def _find_transaction_table(
+    soup: Any,
+) -> Tuple[Optional[Any], List[str]]:
     for table in soup.select('table'):
         headers = [
             th.get_text(' ', strip=True)
@@ -249,7 +290,9 @@ def _find_transaction_table(soup):
     return None, []
 
 
-def _match_header_index(headers, keywords):
+def _match_header_index(
+    headers: List[str], keywords: Tuple[str, ...]
+) -> Optional[int]:
     for idx, header in enumerate(headers):
         normalized = header.replace(' ', '')
         for keyword in keywords:
@@ -258,14 +301,14 @@ def _match_header_index(headers, keywords):
     return None
 
 
-def _clean_amount(text):
+def _clean_amount(text: str) -> int:
     cleaned = text.replace(',', '').replace('원', '').replace('+', '').replace('-', '').strip()
     if not cleaned:
         return 0
     return int(cleaned)
 
 
-def _parse_transactions_html(html):
+def _parse_transactions_html(html: str) -> List[Transaction]:
     soup = bs(html, 'html.parser')
     table, headers = _find_transaction_table(soup)
     if table is None:
@@ -320,11 +363,16 @@ def _parse_transactions_html(html):
     return transactions
 
 
-def get_transactions(bank_num, birthday, password, days=30,
-                     PHANTOM_PATH=None,
-                     LOG_PATH=os.path.devnull,
-                     cache=False,
-                     headless=True):
+def get_transactions(
+    bank_num: str | int,
+    birthday: str | int,
+    password: str | int,
+    days: int = 30,
+    PHANTOM_PATH: Optional[str] = None,
+    LOG_PATH: str = os.path.devnull,
+    cache: bool = False,
+    headless: bool = True,
+) -> List[Transaction]:
     del PHANTOM_PATH, LOG_PATH, cache
 
     bank_num = str(bank_num).replace('-', '')

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import time
 import math
@@ -5,6 +7,8 @@ import operator
 import datetime
 from functools import reduce
 from io import BytesIO
+from typing import Any, Dict, List, Optional, Tuple
+from typing_extensions import TypedDict
 
 from bs4 import BeautifulSoup as bs
 from dateutil import parser
@@ -19,7 +23,21 @@ from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 
 
-def rmsdiff(im1, im2):
+class Transaction(TypedDict):
+    date: datetime.datetime
+    amount: int
+    balance: int
+    transaction_by: str
+
+
+class _KeyInfo(TypedDict):
+    index: int
+    coords: List[int]
+    center: Tuple[int, int]
+
+
+
+def rmsdiff(im1: Image.Image, im2: Image.Image) -> float:
     im1 = im1.convert('RGBA')
     im2 = im2.convert('RGBA')
     h = ImageChops.difference(im1, im2).histogram()
@@ -68,7 +86,7 @@ _TABLE_SELECTORS = [
 ]
 
 
-def _dismiss_alerts(driver, max_alerts=5):
+def _dismiss_alerts(driver: webdriver.Chrome, max_alerts: int = 5) -> None:
     for _ in range(max_alerts):
         try:
             driver.switch_to.alert.dismiss()
@@ -77,7 +95,9 @@ def _dismiss_alerts(driver, max_alerts=5):
             break
 
 
-def _wait_for_inquiry_form(driver, timeout=15):
+def _wait_for_inquiry_form(
+    driver: webdriver.Chrome, timeout: int = 15
+) -> Tuple[str, str]:
     """Wait for the date-range form after login.
 
     Tries known element IDs/names so a single renamed field doesn't break
@@ -102,7 +122,13 @@ def _wait_for_inquiry_form(driver, timeout=15):
     )
 
 
-def _set_date_range(driver, sta_id, end_id, start_str, end_str):
+def _set_date_range(
+    driver: webdriver.Chrome,
+    sta_id: str,
+    end_id: str,
+    start_str: str,
+    end_str: str,
+) -> None:
     """Set start/end date using the page's own calSetVal, with a direct
     value-assignment fallback for when the JS API changes."""
     for field_id, value in [(sta_id, start_str), (end_id, end_str)]:
@@ -127,7 +153,7 @@ def _set_date_range(driver, sta_id, end_id, start_str, end_str):
             )
 
 
-def _click_inquiry_button(driver):
+def _click_inquiry_button(driver: webdriver.Chrome) -> None:
     for by, selector in _INQUIRY_BUTTON_SELECTORS:
         try:
             driver.find_element(by, selector).click()
@@ -140,7 +166,7 @@ def _click_inquiry_button(driver):
     )
 
 
-def _parse_transactions(soup):
+def _parse_transactions(soup: Any) -> List[Transaction]:
     """Parse the transaction table, deriving column indices from the header
     row so column reordering doesn't silently corrupt the output."""
     table = None
@@ -213,11 +239,16 @@ def _parse_transactions(soup):
     return transactions
 
 
-def get_transactions(bank_num, birthday, password, days=30,
-                     PHANTOM_PATH=None,
-                     LOG_PATH=os.path.devnull,
-                     cache=False,
-                     headless=True):
+def get_transactions(
+    bank_num: str | int,
+    birthday: str | int,
+    password: str | int,
+    days: int = 30,
+    PHANTOM_PATH: Optional[str] = None,
+    LOG_PATH: str = os.path.devnull,
+    cache: bool = False,
+    headless: bool = True,
+) -> List[Transaction]:
     del PHANTOM_PATH, LOG_PATH, cache
 
     bank_num = str(bank_num).replace('-', '')
